@@ -1,77 +1,79 @@
-// src/controllers/authController.js
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import ErrorResponse from "../utils/ErrorResponse.js";
 
-export const register = async (req, res) => {
+export const register = async (req, res, next) => {
   const { name, email, password } = req.body;
   try {
-    let user = await User.findOne({ where: { email } });
-    if (user) {
-      return res.status(409).json({ message: "Este e-mail já está em uso." });
+    const userExists = await User.findOne({ where: { email } });
+    if (userExists) {
+      return next(new ErrorResponse("Este e-mail já está em uso.", 409));
     }
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    user = await User.create({
+    const user = await User.create({
       name,
       email,
       password: hashedPassword,
     });
-    res
-      .status(201)
-      .json({ message: "Usuário registrado com sucesso!", userId: user.id });
+    res.status(201).json({
+      status: "success",
+      data: {
+        message: "Usuário registrado com sucesso!",
+        userId: user.id,
+      },
+    });
   } catch (error) {
-    console.error("Erro no registro:", error);
-    res
-      .status(500)
-      .json({ message: "Erro no servidor. Tente novamente mais tarde." });
+    next(error);
   }
 };
 
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(401).json({ message: "Credenciais inválidas." });
+      return next(new ErrorResponse('Credenciais inválidas.', 401));
     }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Credenciais inválidas." });
+      return next(new ErrorResponse('Credenciais inválidas.', 401));
     }
     const payload = {
       user: {
         id: user.id,
       },
     };
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: "8h" },
-      (err, token) => {
-        if (err) throw err;
-        res.status(200).json({ token });
-      }
-    );
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "8h",
+    });
+    res.status(200).json({
+      status: "success",
+      data: {
+        token,
+      },
+    });
   } catch (error) {
-    console.error("Erro no login:", error);
-    res
-      .status(500)
-      .json({ message: "Erro no servidor. Tente novamente mais tarde." });
+    next(error);
   }
 };
 
-export const getProfile = async (req, res) => {
+export const getProfile = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.user.id, {
       attributes: { exclude: ["password"] },
     });
     if (!user) {
-      return res.status(404).json({ message: "Usuário não encontrado." });
+      return next(new ErrorResponse("Usuário não encontrado.", 404));
     }
-    res.status(200).json(user);
+    res.status(200).json({
+      status: "success",
+      data: {
+        user,
+      },
+    });
   } catch (error) {
-    console.error("Erro ao buscar perfil:", error);
-    res.status(500).json({ message: "Erro no servidor." });
+    next(error);
   }
 };

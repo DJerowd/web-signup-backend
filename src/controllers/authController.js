@@ -40,23 +40,94 @@ export const login = async (req, res, next) => {
     if (!isMatch) {
       return next(new ErrorResponse("Credenciais inválidas.", 401));
     }
-    const payload = {
-      user: {
-        id: user.id,
-        role: user.role,
-      },
-    };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "8h",
+    const accessToken = jwt.sign(
+      { user: { id: user.id, role: user.role } },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN }
+    );
+    const refreshToken = jwt.sign(
+      { user: { id: user.id } },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN }
+    );
+    user.refreshToken = refreshToken;
+    await user.save();
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
     res.status(200).json({
       status: "success",
       data: {
-        token,
+        accessToken,
       },
     });
   } catch (error) {
     next(error);
+  }
+};
+
+export const refreshToken = async (req, res, next) => {
+  const token = req.cookies.refreshToken;
+  if (!token) {
+    return next(
+      new ErrorResponse("Acesso negado. Nenhum refresh token fornecido.", 401)
+    );
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findOne({
+      where: { id: decoded.user.id, refreshToken: token },
+    });
+    if (!user) {
+      return next(
+        new ErrorResponse("Refresh token inválido ou revogado.", 403)
+      );
+    }
+    const accessToken = jwt.sign(
+      { user: { id: user.id, role: user.role } },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN }
+    );
+    res.status(200).json({
+      status: "success",
+      data: {
+        accessToken,
+      },
+    });
+  } catch (error) {
+    return next(new ErrorResponse("Refresh token inválido ou expirado.", 403));
+  }
+};
+
+export const logout = async (req, res, next) => {
+  const token = req.cookies.refreshToken;
+  if (!token) {
+    return res.sendStatus(204);
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findOne({ where: { id: decoded.user.id } });
+    if (user) {
+      user.refreshToken = null;
+      await user.save();
+    }
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+    });
+    res.status(200).json({
+      status: "success",
+      data: { message: "Logout realizado com sucesso." },
+    });
+  } catch (error) {
+    res.clearCookie("refreshToken");
+    return next(
+      new ErrorResponse("Erro ao fazer logout, token inválido.", 403)
+    );
   }
 };
 

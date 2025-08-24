@@ -80,12 +80,10 @@ O servidor estará rodando em `http://localhost:3000` (ou na porta definida no s
 
 ## Endpoints da API
 
-**Autenticação**
+### Autenticação
 
-`POST /api/register`
-
+#### `POST /api/register`
 Registra um novo usuário.
-
 **Corpo da Requisição:**
 ```
 JSON
@@ -95,7 +93,6 @@ JSON
     "password": "senhaComMinimo8Caracteres"
 }
 ```
-
 **Resposta de Sucesso (201 Created):**
 ```
 JSON
@@ -107,15 +104,12 @@ JSON
     }
 }
 ```
-
 **Respostas de Erro:**
 - `409 Conflict:` Se o e-mail já estiver em uso.
 - `422 Unprocessable Entity:` Se os dados de entrada falharem na validação (ex: senha curta).
 
-`POST /api/login`
-
+#### `POST /api/login`
 Autentica um usuário e retorna um token JWT.
-
 **Corpo da Requisição:**
 ```
 JSON
@@ -124,7 +118,6 @@ JSON
     "password": "suaSenha"
 }
 ```
-
 **Resposta de Sucesso (200 OK):**
 ```
 JSON
@@ -135,18 +128,14 @@ JSON
     }
 }
 ```
-
 **Respostas de Erro:**
 - `401 Unauthorized:` Se as credenciais forem inválidas.
 - `422 Unprocessable Entity:` Se os dados de entrada forem malformatados.
 
-`GET /api/profile`
-
+#### `GET /api/profile`
 Retorna as informações do usuário autenticado. Rota protegida.
-
 **Cabeçalho da Requisição (Header):**
 - `Authorization: Bearer <seu_token_jwt>`
-
 **Resposta de Sucesso (200 OK):**
 ```
 JSON
@@ -163,6 +152,47 @@ JSON
     }
 }
 ```
-
 **Respostas de Erro:**
 - `401 Unauthorized:` Se o token não for fornecido ou for inválido.
+
+### Gerenciamento de Usuários (Requer Autenticação)
+
+#### `GET /api/users`
+Retorna uma lista paginada de todos os usuários. **Requer role de 'admin'**.
+**Parâmetros de Query (Opcionais):**
+- `page` (número, padrão: 1): Página desejada.
+- `limit` (número, padrão: 10): Quantidade de usuários por página.
+- `name` (string): Filtra usuários por nome (busca parcial).
+**Exemplo de Resposta (200 OK):**
+```json
+{
+    "status": "success",
+    "data": {
+        "users": [...],
+        "pagination": {
+            "totalUsers": 50,
+            "totalPages": 5,
+            "currentPage": 1,
+            "limit": 10
+        }
+    }
+}
+```
+
+#### `PUT /api/users/:id`
+Atualiza as informações de um usuário específico. Permissão: 'admin' ou o próprio usuário.
+**Parâmetros da URL:**
+- `id` (número): ID do usuário a ser atualizado.
+**Corpo da Requisição:**
+```
+JSON
+{
+  "name": "Novo Nome",
+  "email": "novoemail@exemplo.com"
+}
+```
+
+#### `DELETE /api/users/:id`
+Deleta um usuário específico. Permissão: 'admin' ou o próprio usuário.
+**Parâmetros da URL:**
+- `id` (número): ID do usuário a ser deletado.

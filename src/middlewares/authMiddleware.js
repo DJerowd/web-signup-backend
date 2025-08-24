@@ -1,22 +1,23 @@
 import jwt from "jsonwebtoken";
+import ErrorResponse from "../utils/ErrorResponse.js";
 
 const authMiddleware = (req, res, next) => {
   const authHeader = req.header("Authorization");
   if (!authHeader) {
-    return res
-      .status(401)
-      .json({ message: "Acesso negado. Nenhum token fornecido." });
+    return next(
+      new ErrorResponse("Acesso negado. Nenhum token fornecido.", 401)
+    );
   }
   const token = authHeader.split(" ")[1];
   if (!token) {
-    return res.status(401).json({ message: "Token malformatado." });
+    return next(new ErrorResponse("Token malformatado.", 401));
   }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded.user;
     next();
   } catch (error) {
-    res.status(401).json({ message: "Token inválido." });
+    return next(new ErrorResponse("Token inválido ou expirado.", 401));
   }
 };
 

@@ -34,15 +34,16 @@ export const login = async (req, res, next) => {
   try {
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      return next(new ErrorResponse('Credenciais inválidas.', 401));
+      return next(new ErrorResponse("Credenciais inválidas.", 401));
     }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return next(new ErrorResponse('Credenciais inválidas.', 401));
+      return next(new ErrorResponse("Credenciais inválidas.", 401));
     }
     const payload = {
       user: {
         id: user.id,
+        role: user.role,
       },
     };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {

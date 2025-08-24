@@ -12,12 +12,13 @@ import {
   loginValidationRules,
   validate,
 } from "../middlewares/validators/authValidator.js";
+import loginLimiter from "../middlewares/rateLimitMiddleware.js";
 
 const router = Router();
 
 // --- Rotas Públicas (não precisam de token) ---
 router.post("/register", registerValidationRules(), validate, register);
-router.post("/login", loginValidationRules(), validate, login);
+router.post("/login", loginLimiter, loginValidationRules(), validate, login);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", logout);
 

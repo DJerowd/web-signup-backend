@@ -23,10 +23,15 @@ export const validate = (req, res, next) => {
   if (errors.isEmpty()) {
     return next();
   }
-  const extractedErrors = [];
-  errors.array().map((err) => extractedErrors.push({ [err.path]: err.msg }));
-  const firstErrorMessage = errors.array()[0].msg;
-  return next(new ErrorResponse(firstErrorMessage, 422));
+  const extractedErrors = {};
+  errors.array().forEach((err) => {
+    if (!extractedErrors[err.path]) {
+      extractedErrors[err.path] = err.msg;
+    }
+  });
+  return next(
+    new ErrorResponse("Dados fornecidos são inválidos.", 422, extractedErrors)
+  );
 };
 
 export const forgotPasswordValidationRules = () => {

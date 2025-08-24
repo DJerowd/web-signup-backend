@@ -1,7 +1,10 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { Op } from "sequelize";
 import User from "../models/User.js";
 import ErrorResponse from "../utils/ErrorResponse.js";
+import sendEmail from "../utils/sendEmail.js";
 
 export const register = async (req, res, next) => {
   const { name, email, password } = req.body;
@@ -144,6 +147,82 @@ export const getProfile = async (req, res, next) => {
       data: {
         user,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const forgotPassword = async (req, res, next) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(200).json({
+        status: "success",
+        data: {
+          message:
+            "Se um usuário com este e-mail existir, um link para redefinição de senha será enviado.",
+        },
+      });
+    }
+    const resetToken = user.createPasswordResetToken();
+    await user.save({ validate: false });
+    const resetURL = `${req.protocol}://${req.get(
+      "host"
+    )}/api/reset-password/${resetToken}`;
+    const message = `Você recebeu este e-mail porque solicitou a redefinição de sua senha. Por favor, clique no link a seguir para redefinir sua senha: \n\n ${resetURL} \n\n Se você não solicitou isso, por favor ignore este e-mail.`;
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: "Redefinição de Senha (Válido por 10 minutos)",
+        message,
+      });
+      res.status(200).json({
+        status: "success",
+        data: { message: "E-mail de redefinição enviado." },
+      });
+    } catch (err) {
+      user.passwordResetToken = null;
+      user.passwordResetExpires = null;
+      await user.save({ validate: false });
+      return next(
+        new ErrorResponse(
+          "Não foi possível enviar o e-mail. Tente novamente mais tarde.",
+          500
+        )
+      );
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  const { resetToken } = req.params;
+  const { password } = req.body;
+  try {
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+    const user = await User.findOne({
+      where: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: { [Op.gt]: Date.now() },
+      },
+    });
+    if (!user) {
+      return next(new ErrorResponse("Token inválido ou expirado.", 400));
+    }
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    await user.save();
+    res.status(200).json({
+      status: "success",
+      data: { message: "Senha redefinida com sucesso." },
     });
   } catch (error) {
     next(error);

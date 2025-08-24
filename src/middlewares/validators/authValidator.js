@@ -28,3 +28,17 @@ export const validate = (req, res, next) => {
   const firstErrorMessage = errors.array()[0].msg;
   return next(new ErrorResponse(firstErrorMessage, 422));
 };
+
+export const forgotPasswordValidationRules = () => {
+  return [
+    body("email").isEmail().withMessage("Por favor, forneça um e-mail válido."),
+  ];
+};
+
+export const resetPasswordValidationRules = () => {
+  return [
+    body("password")
+      .isLength({ min: 8 })
+      .withMessage("A nova senha deve ter no mínimo 8 caracteres."),
+  ];
+};

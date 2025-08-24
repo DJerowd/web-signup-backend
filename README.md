@@ -6,9 +6,11 @@ Este repositório contém o código-fonte do back-end para um sistema de autenti
 
 - **Autenticação Stateless com JWT:** Geração de JSON Web Tokens (`jsonwebtoken`) no login para autenticação segura e sem estado.
 - **Segurança de Senhas:** As senhas são criptografadas usando `bcryptjs` antes de serem salvas no banco de dados.
+- **Fluxo de Redefinição de Senha:** Implementação completa do "Esqueci Minha Senha" com envio de token seguro por e-mail.
 - **CRUD de Usuários:** Funcionalidades completas para Criar, Ler, Atualizar e Deletar usuários.
 - **Controle de Acesso Baseado em Roles (Cargos):** Sistema de permissões que diferencia usuários comuns (`user`) de administradores (`admin`).
 - **Listagem Avançada:** A rota de listagem de usuários inclui funcionalidades de paginação e pesquisa por nome.
+- **Segurança Adicional:** Proteção contra ataques de força bruta na rota de login com Rate Limiting.
 - **Rotas Protegidas:** Uso de middleware para garantir que apenas usuários autenticados (e com a `role` correta) possam acessar rotas específicas.
 - **Validação de Dados:** Camada de validação com `express-validator` para garantir a integridade dos dados de entrada.
 - **Tratamento de Erros Centralizado:** Um middleware dedicado para capturar e formatar todos os erros da aplicação.
@@ -23,6 +25,9 @@ Este repositório contém o código-fonte do back-end para um sistema de autenti
 - **jsonwebtoken (JWT)** para gerenciamento de tokens
 - **bcryptjs** para hashing de senhas
 - **express-validator** para validação de dados de entrada
+- **express-rate-limit** para proteção contra ataques de força bruta
+- **Nodemailer** para envio de e-mails (redefinição de senha)
+- **cookie-parser** para gerenciar cookies de forma segura
 - **dotenv** para gerenciamento de variáveis de ambiente
 - **cors** para permitir requisições de diferentes origens
 
@@ -32,6 +37,7 @@ Este repositório contém o código-fonte do back-end para um sistema de autenti
 
 - Node.js (v18+)
 - MySQL
+- Uma conta em um serviço de teste de SMTP como o [Mailtrap.io](Mailtrap.io)
 
 **Passos para Instalação**
 
@@ -75,6 +81,9 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(255) NOT NULL DEFAULT 'user',
+    refreshToken TEXT,
+    passwordResetToken VARCHAR(255),
+    passwordResetExpires DATETIME,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -162,12 +171,28 @@ JSON
 - `401 Unauthorized:` Se as credenciais forem inválidas.
 - `422 Unprocessable Entity:` Se os dados de entrada forem malformatados.
 
+#### `POST /api/logout`
+
+Realiza o logout do usuário, invalidando o `refreshToken` no banco de dados e limpando o cookie do cliente.
+
+#### `POST /api/refresh-token`
+
+Permite a obtenção de um novo `accessToken` usando o `refreshToken` (enviado via cookie).
+
+#### `POST /api/forgot-password`
+
+Inicia o fluxo de redefinição de senha. Envia um e-mail com um token de reset para o e-mail fornecido.
+
+#### `POST /api/reset-password/:resetToken`
+
+Redefine a senha do usuário usando o token enviado por e-mail e a nova senha fornecida no corpo da requisição.
+
 #### `GET /api/profile`
 
 Retorna as informações do usuário autenticado. Rota protegida.
 **Cabeçalho da Requisição (Header):**
 
-- `Authorization: Bearer <seu_token_jwt>`
+- **Header**: `Authorization: Bearer <seu_accessToken_jwt>`
   **Resposta de Sucesso (200 OK):**
 
 ```

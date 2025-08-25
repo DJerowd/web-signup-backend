@@ -36,6 +36,25 @@ export const listUsers = async (req, res, next) => {
   }
 };
 
+export const getUserById = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id, {
+      attributes: { exclude: ["password", "refreshToken"] },
+    });
+    if (!user) {
+      return next(new ErrorResponse("Utilizador não encontrado.", 404));
+    }
+    res.status(200).json({
+      status: "success",
+      data: {
+        user,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const updateUser = async (req, res, next) => {
   const { id } = req.params;
   const { name, email } = req.body;

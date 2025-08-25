@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   listUsers,
+  getUserById,
   updateUser,
   deleteUser,
 } from "../controllers/userController.js";
@@ -14,6 +15,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get("/", adminMiddleware, listUsers);
+router.get("/:id", adminMiddleware, getUserById);
 router.put("/:id", updateUserValidationRules(), validate, updateUser);
 router.delete("/:id", deleteUser);
 
